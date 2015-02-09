@@ -10,9 +10,11 @@
  * of Sonatype, Inc. Apache Maven is a trademark of the Apache Software Foundation. M2eclipse is a trademark of the
  * Eclipse Foundation. All other trademarks are the property of their respective owners.
  */
+
 package org.apache.shiro.nexus;
 
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.inject.Provider;
 
 import org.sonatype.security.UserIdMdcHelper;
@@ -22,8 +24,10 @@ import org.sonatype.sisu.goodies.eventbus.EventBus;
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.subject.Subject;
+import org.apache.shiro.web.mgt.CookieRememberMeManager;
 import org.apache.shiro.web.mgt.DefaultWebSecurityManager;
 import org.apache.shiro.web.mgt.WebSecurityManager;
+import org.apache.shiro.web.servlet.Cookie;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -35,12 +39,23 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class NexusWebSecurityManager
     extends DefaultWebSecurityManager
 {
+  private static final String DEFAULT_REMEMBER_ME_COOKIE_NAME = "NXREMEMBERME";
 
   private final Provider<EventBus> eventBus;
 
   @Inject
-  public NexusWebSecurityManager(final Provider<EventBus> eventBus) {
+  public NexusWebSecurityManager(final Provider<EventBus> eventBus,
+                                 final @Named("${nexus.rememberMeCookieName:-" + DEFAULT_REMEMBER_ME_COOKIE_NAME + "}") String rememberMeCookieName)
+  {
     this.eventBus = checkNotNull(eventBus);
+
+    // customize remember-me configuration
+    // TODO: Inject singleton?
+    CookieRememberMeManager rememberMeManager = new CookieRememberMeManager();
+    Cookie cookie = rememberMeManager.getCookie();
+    cookie.setName(rememberMeCookieName);
+    // TODO: configure cookie max-age (seconds)
+    setRememberMeManager(rememberMeManager);
   }
 
   /**
