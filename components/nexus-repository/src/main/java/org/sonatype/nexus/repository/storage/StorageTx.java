@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 
 import org.sonatype.nexus.blobstore.api.Blob;
 import org.sonatype.nexus.blobstore.api.BlobRef;
+import org.sonatype.nexus.common.hash.HashAlgorithm;
 import org.sonatype.nexus.repository.Repository;
 import org.sonatype.nexus.repository.util.NestedAttributesMap;
 
@@ -202,6 +203,13 @@ public interface StorageTx
    * Creates a new Blob.
    */
   BlobRef createBlob(InputStream inputStream, Map<String, String> headers);
+
+  /**
+   * Creates a new Blob and updates the given asset with a reference to it, hash metadata, size, and content type.
+   * The old blob, if any, will be deleted.
+   */
+  BlobRef setBlob(InputStream inputStream, Map<String, String> headers, OrientVertex asset,
+                     Iterable<HashAlgorithm> hashAlgorithms, String contentType);
 
   /**
    * Gets a Blob, or {@code null if not found}.

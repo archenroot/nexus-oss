@@ -16,7 +16,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -26,7 +25,6 @@ import org.sonatype.nexus.blobstore.api.Blob;
 import org.sonatype.nexus.blobstore.api.BlobRef;
 import org.sonatype.nexus.blobstore.api.BlobStore;
 import org.sonatype.nexus.common.hash.HashAlgorithm;
-import org.sonatype.nexus.common.hash.MultiHashingInputStream;
 import org.sonatype.nexus.mime.MimeSupport;
 import org.sonatype.nexus.repository.FacetSupport;
 import org.sonatype.nexus.repository.content.InvalidContentException;
@@ -40,7 +38,6 @@ import org.sonatype.nexus.repository.view.Context;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.hash.HashCode;
 import com.tinkerpop.blueprints.Direction;
 import com.tinkerpop.blueprints.Vertex;
 import com.tinkerpop.blueprints.impls.orient.OrientVertex;
@@ -53,14 +50,12 @@ import static org.sonatype.nexus.common.hash.HashAlgorithm.SHA1;
 import static org.sonatype.nexus.repository.storage.StorageFacet.E_PART_OF_COMPONENT;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_ATTRIBUTES;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_BLOB_REF;
-import static org.sonatype.nexus.repository.storage.StorageFacet.P_CHECKSUM;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_CONTENT_TYPE;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_FORMAT;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_GROUP;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_LAST_UPDATED;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_NAME;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_PATH;
-import static org.sonatype.nexus.repository.storage.StorageFacet.P_SIZE;
 
 /**
  * A {@link RawContentFacet} that persists to a {@link StorageFacet}.
@@ -133,27 +128,14 @@ public class RawContentFacetImpl
       else {
         // UPDATE
         asset = getAsset(component);
-        final BlobRef oldBlobRef = getBlobRef(path, asset);
-        tx.deleteBlob(oldBlobRef);
       }
 
       // TODO: Figure out created-by header
       final ImmutableMap<String, String> headers = ImmutableMap
           .of(BlobStore.BLOB_NAME_HEADER, path, BlobStore.CREATED_BY_HEADER, "unknown");
 
-      // Store new blob while calculating hashes in one pass
-      final MultiHashingInputStream hashingStream = new MultiHashingInputStream(hashAlgorithms, content.openInputStream());
-      final BlobRef newBlobRef = tx.createBlob(hashingStream, headers);
-
-      asset.setProperty(P_BLOB_REF, newBlobRef.toString());
-      asset.setProperty(P_SIZE, hashingStream.count());
-      asset.setProperty(P_CONTENT_TYPE, determineContentType(path, content));
-
-      // Set attributes map to contain computed checksum metadata
-      Map<HashAlgorithm, HashCode> hashes = hashingStream.hashes();
-      NestedAttributesMap checksums = tx.getAttributes(asset).child(P_CHECKSUM);
-      for (HashAlgorithm algorithm : hashAlgorithms) {
-        checksums.set(algorithm.name(), hashes.get(algorithm).toString());
+      try (InputStream in = content.openInputStream()) {
+        tx.setBlob(in, headers, asset, hashAlgorithms, determineContentType(path, content));
       }
 
       final DateTime lastUpdated = content.getLastUpdated();

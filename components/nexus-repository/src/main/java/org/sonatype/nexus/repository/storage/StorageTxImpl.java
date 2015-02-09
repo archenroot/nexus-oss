@@ -20,6 +20,8 @@ import javax.annotation.Nullable;
 
 import org.sonatype.nexus.blobstore.api.Blob;
 import org.sonatype.nexus.blobstore.api.BlobRef;
+import org.sonatype.nexus.common.hash.HashAlgorithm;
+import org.sonatype.nexus.common.hash.MultiHashingInputStream;
 import org.sonatype.nexus.common.stateguard.Guarded;
 import org.sonatype.nexus.common.stateguard.StateGuard;
 import org.sonatype.nexus.common.stateguard.StateGuardAware;
@@ -34,6 +36,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.hash.HashCode;
 import com.orientechnologies.orient.core.metadata.schema.OType;
 import com.orientechnologies.orient.core.record.impl.ODocument;
 import com.orientechnologies.orient.core.sql.OCommandSQL;
@@ -47,7 +50,11 @@ import static org.sonatype.nexus.repository.storage.StorageFacet.E_OWNS_ASSET;
 import static org.sonatype.nexus.repository.storage.StorageFacet.E_OWNS_COMPONENT;
 import static org.sonatype.nexus.repository.storage.StorageFacet.E_PART_OF_COMPONENT;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_ATTRIBUTES;
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_BLOB_REF;
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_CHECKSUM;
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_CONTENT_TYPE;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_REPOSITORY_NAME;
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_SIZE;
 import static org.sonatype.nexus.repository.storage.StorageFacet.V_ASSET;
 import static org.sonatype.nexus.repository.storage.StorageFacet.V_COMPONENT;
 import static org.sonatype.nexus.repository.storage.StorageTxImpl.State.CLOSED;
@@ -415,6 +422,40 @@ public class StorageTxImpl
     checkNotNull(headers);
 
     return blobTx.create(inputStream, headers);
+  }
+
+  @Override
+  public BlobRef setBlob(final InputStream inputStream, final Map<String, String> headers, final OrientVertex asset,
+                            final Iterable<HashAlgorithm> hashAlgorithms, final String contentType)
+  {
+    checkNotNull(inputStream);
+    checkNotNull(headers);
+    checkNotNull(asset);
+    checkNotNull(hashAlgorithms);
+    checkNotNull(contentType);
+
+    // Delete old blob if necessary
+    String oldBlobRefString = asset.getProperty(P_BLOB_REF);
+    if (oldBlobRefString != null) {
+      deleteBlob(BlobRef.parse(oldBlobRefString));
+    }
+
+    // Store new blob while calculating hashes in one pass
+    final MultiHashingInputStream hashingStream = new MultiHashingInputStream(hashAlgorithms, inputStream);
+    final BlobRef newBlobRef = createBlob(hashingStream, headers);
+
+    asset.setProperty(P_BLOB_REF, newBlobRef.toString());
+    asset.setProperty(P_SIZE, hashingStream.count());
+    asset.setProperty(P_CONTENT_TYPE, contentType);
+
+    // Set attributes map to contain computed checksum metadata
+    Map<HashAlgorithm, HashCode> hashes = hashingStream.hashes();
+    NestedAttributesMap checksums = getAttributes(asset).child(P_CHECKSUM);
+    for (HashAlgorithm algorithm : hashAlgorithms) {
+      checksums.set(algorithm.name(), hashes.get(algorithm).toString());
+    }
+
+    return newBlobRef;
   }
 
   @Nullable
