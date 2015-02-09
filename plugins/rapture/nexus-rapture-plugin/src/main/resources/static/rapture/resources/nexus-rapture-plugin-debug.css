@@ -46,7 +46,8 @@
 }
 
 .nx-info-entry-value {
-  padding-left: 10px;
+  padding-left: 5px;
+  padding-right: 25px;
 }
 
 .nx-red-marker td {
