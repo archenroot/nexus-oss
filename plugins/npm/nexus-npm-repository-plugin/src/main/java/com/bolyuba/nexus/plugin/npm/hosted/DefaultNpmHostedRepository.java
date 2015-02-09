@@ -163,38 +163,47 @@ public class DefaultNpmHostedRepository
         // shut down NPM MD+tarball service completely
         return delegateDoRetrieveLocalItem(storeRequest);
       }
-      PackageRequest packageRequest = new PackageRequest(storeRequest);
-      if (packageRequest.isMetadata()) {
-        ContentLocator contentLocator;
-        if (packageRequest.isRegistryRoot()) {
-          contentLocator = hostedMetadataService.produceRegistryRoot(packageRequest);
-        }
-        else if (packageRequest.isPackageRoot()) {
-          contentLocator = hostedMetadataService.producePackageRoot(packageRequest);
+      PackageRequest packageRequest = null;
+      try {
+        packageRequest = new PackageRequest(storeRequest);
+      }
+      catch (IllegalArgumentException e) {
+        // something completely different
+        return delegateDoRetrieveLocalItem(storeRequest);
+      }
+      if (packageRequest != null) {
+        if (packageRequest.isMetadata()) {
+          ContentLocator contentLocator;
+          if (packageRequest.isRegistryRoot()) {
+            log.debug("Serving registry root...");
+            contentLocator = hostedMetadataService.produceRegistryRoot(packageRequest);
+          }
+          else if (packageRequest.isPackageRoot()) {
+            log.debug("Serving package {} root...", packageRequest.getName());
+            contentLocator = hostedMetadataService.producePackageRoot(packageRequest);
+          }
+          else {
+            log.debug("Serving package {} version {}...", packageRequest.getName(), packageRequest.getVersion());
+            contentLocator = hostedMetadataService.producePackageVersion(packageRequest);
+          }
+          if (contentLocator != null) {
+            return new DefaultStorageFileItem(this, storeRequest, true, true, contentLocator);
+          }
         }
         else {
-          contentLocator = hostedMetadataService.producePackageVersion(packageRequest);
+          // registry special
+          if (packageRequest.isRegistrySpecial() && packageRequest.getPath().startsWith("/-/all")) {
+            log.debug("Serving registry root from /-/all...");
+            return new DefaultStorageFileItem(this, storeRequest, true, true,
+                hostedMetadataService.produceRegistryRoot(
+                    packageRequest));
+          }
+          log.debug("Unknown registry special {}", packageRequest.getPath());
         }
-        if (contentLocator == null) {
-          throw new ItemNotFoundException(
-              reasonFor(storeRequest, this, "No content for path %s", storeRequest.getRequestPath()));
-        }
-        return new DefaultStorageFileItem(this, storeRequest, true, true, contentLocator);
       }
-      else {
-        // registry special
-        if (packageRequest.isRegistrySpecial() && packageRequest.getPath().startsWith("/-/all")) {
-          return new DefaultStorageFileItem(this, storeRequest, true, true,
-              hostedMetadataService.produceRegistryRoot(
-                  packageRequest));
-        }
-        throw new ItemNotFoundException(
-            reasonFor(storeRequest, this, "No content for path %s", storeRequest.getRequestPath()));
-      }
-    }
-    catch (IllegalArgumentException ignore) {
-      // something completely different
-      return delegateDoRetrieveLocalItem(storeRequest);
+      log.debug("No NPM metadata for path {}", storeRequest.getRequestPath());
+      throw new ItemNotFoundException(
+          reasonFor(storeRequest, this, "No content for path %s", storeRequest.getRequestPath()));
     }
     catch (IOException e) {
       throw new LocalStorageException("Metadata service error", e);
@@ -258,55 +267,59 @@ public class DefaultNpmHostedRepository
       throws UnsupportedStorageOperationException, IllegalOperationException, StorageException, AccessDeniedException
   {
     try {
-      PackageRequest packageRequest = new PackageRequest(request);
-
-      if (!packageRequest.isPackageRoot()) {
-        throw new UnsupportedStorageOperationException(
-            "Store operations are only valid for package roots, path: " + packageRequest.getPath());
+      PackageRequest packageRequest = null;
+      try {
+        packageRequest = new PackageRequest(request);
+      } catch (IllegalArgumentException e) {
+        // TODO: This might be our tarball, but it also might be something stupid uploaded. Need to validate further
+        // for now just store it
+        super.storeItem(request, is, userAttributes);
       }
 
-      // serialize all publish request for the same
-      final RepositoryItemUid publisherUid = createUid(packageRequest.getPath() + ".publish()");
-      RepositoryItemUidLock publisherLock = publisherUid.getLock();
+      if (packageRequest != null) {
+        if (!packageRequest.isPackageRoot()) {
+          throw new UnsupportedStorageOperationException(
+              "Store operations are only valid for package roots, path: " + packageRequest.getPath());
+        }
 
-      publisherLock.lock(Action.create);
-      try {
-        PackageRoot packageRoot = hostedMetadataService.parsePackageRoot(packageRequest,
-            new PreparedContentLocator(is, NpmRepository.JSON_MIME_TYPE, ContentLocator.UNKNOWN_LENGTH));
+        // serialize all publish request for the same
+        final RepositoryItemUid publisherUid = createUid(packageRequest.getPath() + ".publish()");
+        RepositoryItemUidLock publisherLock = publisherUid.getLock();
 
+        publisherLock.lock(Action.create);
         try {
-          checkConditions(request, getResultingActionOnWrite(request, packageRoot));
-        }
-        catch (ItemNotFoundException e) {
-          throw new AccessDeniedException(request, e.getMessage());
-        }
+          PackageRoot packageRoot = hostedMetadataService.parsePackageRoot(packageRequest,
+              new PreparedContentLocator(is, NpmRepository.JSON_MIME_TYPE, ContentLocator.UNKNOWN_LENGTH));
 
-        packageRoot = hostedMetadataService.consumePackageRoot(packageRoot);
+          try {
+            checkConditions(request, getResultingActionOnWrite(request, packageRoot));
+          }
+          catch (ItemNotFoundException e) {
+            throw new AccessDeniedException(request, e.getMessage());
+          }
 
-        if (!packageRoot.getAttachments().isEmpty()) {
-          for (NpmBlob attachment : packageRoot.getAttachments().values()) {
-            try {
-              final ResourceStoreRequest attachmentRequest = new ResourceStoreRequest(request);
-              attachmentRequest.setRequestPath(
-                  packageRequest.getPath() + RepositoryItemUid.PATH_SEPARATOR + NPM_REGISTRY_SPECIAL +
-                      RepositoryItemUid.PATH_SEPARATOR + attachment.getName());
-              super.storeItem(attachmentRequest, attachment.getContent(), userAttributes);
-            }
-            finally {
-              // delete temporary files backing attachment
-              attachment.delete();
+          packageRoot = hostedMetadataService.consumePackageRoot(packageRoot);
+
+          if (!packageRoot.getAttachments().isEmpty()) {
+            for (NpmBlob attachment : packageRoot.getAttachments().values()) {
+              try {
+                final ResourceStoreRequest attachmentRequest = new ResourceStoreRequest(request);
+                attachmentRequest.setRequestPath(
+                    packageRequest.getPath() + RepositoryItemUid.PATH_SEPARATOR + NPM_REGISTRY_SPECIAL +
+                        RepositoryItemUid.PATH_SEPARATOR + attachment.getName());
+                super.storeItem(attachmentRequest, attachment.getContent(), userAttributes);
+              }
+              finally {
+                // delete temporary files backing attachment
+                attachment.delete();
+              }
             }
           }
         }
+        finally {
+          publisherLock.unlock();
+        }
       }
-      finally {
-        publisherLock.unlock();
-      }
-    }
-    catch (IllegalArgumentException e) {
-      // TODO: This might be our tarball, but it also might be something stupid uploaded. Need to validate further
-      // for now just store it
-      super.storeItem(request, is, userAttributes);
     }
     catch (IOException e) {
       throw new LocalStorageException("Upload problem", e);
