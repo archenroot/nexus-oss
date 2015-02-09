@@ -14,11 +14,11 @@
 package org.apache.shiro.nexus;
 
 import javax.inject.Inject;
-import javax.inject.Named;
 import javax.inject.Provider;
 
 import org.sonatype.security.UserIdMdcHelper;
 import org.sonatype.security.events.AuthenticationEvent;
+import org.sonatype.sisu.goodies.common.Time;
 import org.sonatype.sisu.goodies.eventbus.EventBus;
 
 import org.apache.shiro.authc.AuthenticationException;
@@ -41,20 +41,21 @@ public class NexusWebSecurityManager
 {
   private static final String DEFAULT_REMEMBER_ME_COOKIE_NAME = "NXREMEMBERME";
 
+  private static final Time DEFAULT_REMEMBER_ME_COOKIE_MAX_AGE = Time.days(30);
+
   private final Provider<EventBus> eventBus;
 
   @Inject
-  public NexusWebSecurityManager(final Provider<EventBus> eventBus,
-                                 final @Named("${nexus.rememberMeCookieName:-" + DEFAULT_REMEMBER_ME_COOKIE_NAME + "}") String rememberMeCookieName)
-  {
+  public NexusWebSecurityManager(final Provider<EventBus> eventBus) {
     this.eventBus = checkNotNull(eventBus);
 
-    // customize remember-me configuration
     // TODO: Inject singleton?
+    // customize remember-me configuration
     CookieRememberMeManager rememberMeManager = new CookieRememberMeManager();
     Cookie cookie = rememberMeManager.getCookie();
-    cookie.setName(rememberMeCookieName);
-    // TODO: configure cookie max-age (seconds)
+    // TODO: Expose for configuration, for now just use a more sane defaults
+    cookie.setName(DEFAULT_REMEMBER_ME_COOKIE_NAME);
+    cookie.setMaxAge(DEFAULT_REMEMBER_ME_COOKIE_MAX_AGE.toSecondsI());
     setRememberMeManager(rememberMeManager);
   }
 
