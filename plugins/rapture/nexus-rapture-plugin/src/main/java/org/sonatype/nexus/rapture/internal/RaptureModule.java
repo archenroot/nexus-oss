@@ -15,6 +15,7 @@ package org.sonatype.nexus.rapture.internal;
 import javax.inject.Named;
 
 import org.sonatype.nexus.guice.FilterChainModule;
+import org.sonatype.nexus.web.CookieFilter;
 import org.sonatype.nexus.web.SecurityFilter;
 
 import com.google.inject.AbstractModule;
@@ -45,6 +46,7 @@ public class RaptureModule
       protected void configureServlets() {
         serve(SESSION_MP).with(SessionServlet.class);
         filter(SESSION_MP).through(SecurityFilter.class);
+        filter(SESSION_MP).through(CookieFilter.class);
       }
     });
 

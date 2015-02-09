@@ -80,6 +80,8 @@ public class SecurityComponent
     this.authTickets = checkNotNull(authTickets);
   }
 
+  // FIXME: Move authenticate to session servlet
+
   @DirectMethod
   @Validate
   public UserXO authenticate(final @NotEmpty(message = "[base64Username] may not be empty") String base64Username,
