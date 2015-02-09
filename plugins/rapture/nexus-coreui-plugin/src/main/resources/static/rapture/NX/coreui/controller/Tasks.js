@@ -110,11 +110,6 @@ Ext.define('NX.coreui.controller.Tasks', {
           click: me.stopTask,
           afterrender: me.bindStopButton
         },
-        /*'nx-coreui-task-settings nx-settingsform': {
-          submitted: function() {
-            me.loadStore(Ext.emptyFn)
-          }
-        },*/
         'nx-coreui-task-settings button[action=save]': {
           click: me.updateTask
         },
