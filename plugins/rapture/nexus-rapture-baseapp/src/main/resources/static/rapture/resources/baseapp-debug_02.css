@@ -14473,7 +14473,7 @@
  * cls: 'x-form-readonly'
  */
 /* line 11, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/field/Base.scss */
-.x-form-field[readonly="readonly"].x-form-field:not([role="combobox"]) {
+.x-form-field[readonly="readonly"] {
   background-color: #ebebeb;
 }
 
