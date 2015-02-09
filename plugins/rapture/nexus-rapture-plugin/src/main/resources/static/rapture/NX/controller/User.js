@@ -214,7 +214,9 @@ Ext.define('NX.controller.User', {
     var me = this,
         win = button.up('window'),
         form = button.up('form'),
-        values = form.getValues();
+        values = form.getValues(),
+        b64username = NX.util.Base64.encode(values.username),
+        b64password = NX.util.Base64.encode(values.password);
 
     win.getEl().mask(NX.I18n.get('GLOBAL_SIGN_IN_MASK'));
 
@@ -224,8 +226,8 @@ Ext.define('NX.controller.User', {
       url: NX.util.Url.urlOf('service/rapture/session'),
       method: 'POST',
       params: {
-        username: values.username,
-        password: values.password,
+        username: b64username,
+        password: b64password,
         rememberMe: values.rememberMe
       },
       scope: me,

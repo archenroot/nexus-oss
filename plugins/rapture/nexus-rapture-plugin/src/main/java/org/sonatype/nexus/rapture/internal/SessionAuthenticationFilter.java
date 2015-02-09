@@ -20,6 +20,8 @@ import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.sonatype.nexus.util.Tokens;
+
 import org.apache.shiro.authc.AuthenticationException;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.subject.Subject;
@@ -88,13 +90,20 @@ public class SessionAuthenticationFilter
     return WebUtils.isTrue(request, P_REMEMBER_ME);
   }
 
+  private String decodeBase64Param(final ServletRequest request, final String name) {
+    String encoded = WebUtils.getCleanParam(request, name);
+    if (encoded != null) {
+      return Tokens.decodeBase64String(encoded);
+    }
+    return null;
+  }
+
   @Override
   protected AuthenticationToken createToken(final ServletRequest request, final ServletResponse response)
       throws Exception
   {
-    // TODO: Resolve if we want to obscure username+password with base64 or not
-    String username = WebUtils.getCleanParam(request, P_USERNAME);
-    String password = WebUtils.getCleanParam(request, P_PASSWORD);
+    String username = decodeBase64Param(request, P_USERNAME);
+    String password = decodeBase64Param(request, P_PASSWORD);
     return createToken(username, password, request, response);
   }
 
