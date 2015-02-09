@@ -176,8 +176,14 @@ public class DefaultNpmProxyRepository
         // shut down NPM MD+tarball service completely
         return delegateDoRetrieveLocalItem(storeRequest);
       }
+      PackageRequest packageRequest = null;
       try {
-        PackageRequest packageRequest = new PackageRequest(storeRequest);
+        packageRequest = new PackageRequest(storeRequest);
+      }
+      catch (IllegalArgumentException ignore) {
+        // ignore, will see is this a tarball req or just do it standard way if needed
+      }
+      if (packageRequest != null) {
         packageRequest.getStoreRequest().getRequestContext().put(NpmRepository.NPM_METADATA_SERVICED, Boolean.TRUE);
         if (packageRequest.isMetadata()) {
           ContentLocator contentLocator;
@@ -211,10 +217,6 @@ public class DefaultNpmProxyRepository
           throw new ItemNotFoundException(
               reasonFor(storeRequest, this, "No content for path %s", storeRequest.getRequestPath()));
         }
-      }
-      catch (IllegalArgumentException ignore) {
-        // ignore, will do it standard way if needed
-        log.debug("Ignored IAEx", ignore);
       }
       // this must be tarball, check it out do we have it locally, and if yes, and metadata checksum matches, give it
       final TarballRequest tarballRequest = getMetadataService().createTarballRequest(storeRequest);
