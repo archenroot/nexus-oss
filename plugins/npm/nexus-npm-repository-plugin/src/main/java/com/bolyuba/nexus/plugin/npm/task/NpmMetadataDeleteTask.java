@@ -57,7 +57,7 @@ public class NpmMetadataDeleteTask
         }
       }
       catch (Exception e) {
-        logger.info("npm repository error during rebuilding metadata of {}", repository, e);
+        logger.info("npm repository error during delete metadata of {}", repository, e);
       }
     }
   }

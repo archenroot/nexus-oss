@@ -79,6 +79,7 @@ import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -232,6 +233,64 @@ public class MetadataServiceIT
 
     final PackageRoot commonjs = metadataStore.getPackageByName(npmProxyRepository, "commonjs");
     assertThat(commonjs, notNullValue());
+  }
+
+  /**
+   * Testing deletion from proxy repositories.
+   */
+  @Test
+  public void proxyPackageDeletionRoundtrip() throws Exception {
+    final ContentLocator input = new PreparedContentLocator(
+        new FileInputStream(util.resolveFile("src/test/npm/ROOT_small.json")),
+        NpmRepository.JSON_MIME_TYPE, -1);
+
+    // this is "illegal" case using internal stuff, but is for testing only
+    metadataStore
+        .updatePackages(npmProxyRepository, metadataParser.parseRegistryRoot(npmProxyRepository.getId(), input));
+
+    log("Splice done");
+    // we pushed all into DB, now query
+    assertThat(metadataStore.listPackageNames(npmProxyRepository), hasSize(4));
+    assertThat(metadataStore.getPackageByName(npmProxyRepository, "ansi-font"), notNullValue());
+    assertThat(metadataStore.getPackageByName(npmProxyRepository, "commonjs"), notNullValue());
+
+    npmProxyRepository.getMetadataService().deletePackage("commonjs");
+
+    assertThat(metadataStore.listPackageNames(npmProxyRepository), hasSize(3));
+    assertThat(metadataStore.getPackageByName(npmProxyRepository, "ansi-font"), notNullValue());
+    assertThat(metadataStore.getPackageByName(npmProxyRepository, "commonjs"), nullValue());
+
+    npmProxyRepository.getMetadataService().deleteAllMetadata();
+    assertThat(metadataStore.listPackageNames(npmProxyRepository), hasSize(0));
+  }
+
+  /**
+   * Testing deletion from hosted repositories.
+   */
+  @Test
+  public void hostedPackageDeletionRoundtrip() throws Exception {
+    final ContentLocator input = new PreparedContentLocator(
+        new FileInputStream(util.resolveFile("src/test/npm/ROOT_small.json")),
+        NpmRepository.JSON_MIME_TYPE, -1);
+
+    // this is "illegal" case using internal stuff, but is for testing only
+    metadataStore
+        .updatePackages(npmHostedRepository, metadataParser.parseRegistryRoot(npmHostedRepository.getId(), input));
+
+    log("Splice done");
+    // we pushed all into DB, now query
+    assertThat(metadataStore.listPackageNames(npmHostedRepository), hasSize(4));
+    assertThat(metadataStore.getPackageByName(npmHostedRepository, "ansi-font"), notNullValue());
+    assertThat(metadataStore.getPackageByName(npmHostedRepository, "commonjs"), notNullValue());
+
+    npmHostedRepository.getMetadataService().deletePackage("commonjs");
+
+    assertThat(metadataStore.listPackageNames(npmHostedRepository), hasSize(3));
+    assertThat(metadataStore.getPackageByName(npmHostedRepository, "ansi-font"), notNullValue());
+    assertThat(metadataStore.getPackageByName(npmHostedRepository, "commonjs"), nullValue());
+
+    npmHostedRepository.getMetadataService().deleteAllMetadata();
+    assertThat(metadataStore.listPackageNames(npmHostedRepository), hasSize(0));
   }
 
   @Test
