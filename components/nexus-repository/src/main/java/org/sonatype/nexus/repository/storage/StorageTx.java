@@ -13,6 +13,7 @@
 package org.sonatype.nexus.repository.storage;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -88,6 +89,13 @@ public interface StorageTx
    */
   @Nullable
   OrientVertex findAssetWithProperty(String propName, Object propValue, Vertex bucket);
+
+
+  /**
+   * Returns all the assets associated with a component.
+   */
+  List<OrientVertex> findAssets(Vertex component);
+
 
   /**
    * Gets all assets in the specified repositories that match the given where clause.

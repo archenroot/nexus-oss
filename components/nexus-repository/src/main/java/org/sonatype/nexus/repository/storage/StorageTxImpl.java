@@ -45,6 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.sonatype.nexus.repository.storage.StorageFacet.E_OWNS_ASSET;
 import static org.sonatype.nexus.repository.storage.StorageFacet.E_OWNS_COMPONENT;
+import static org.sonatype.nexus.repository.storage.StorageFacet.E_PART_OF_COMPONENT;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_ATTRIBUTES;
 import static org.sonatype.nexus.repository.storage.StorageFacet.P_REPOSITORY_NAME;
 import static org.sonatype.nexus.repository.storage.StorageFacet.V_ASSET;
@@ -58,8 +59,8 @@ import static org.sonatype.nexus.repository.storage.StorageTxImpl.State.OPEN;
  * @since 3.0
  */
 public class StorageTxImpl
-  extends ComponentSupport
-  implements StorageTx, StateGuardAware
+    extends ComponentSupport
+    implements StorageTx, StateGuardAware
 {
   private final BlobTx blobTx;
 
@@ -71,7 +72,8 @@ public class StorageTxImpl
 
   public StorageTxImpl(final BlobTx blobTx,
                        final GraphTx graphTx,
-                       final Object bucketId) {
+                       final Object bucketId)
+  {
     this.blobTx = checkNotNull(blobTx);
     this.graphTx = checkNotNull(graphTx);
     this.bucketId = checkNotNull(bucketId);
@@ -90,20 +92,20 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public GraphTx getGraphTx() {
     return graphTx;
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public void commit() {
     graphTx.commit();
     blobTx.commit();
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public void rollback() {
     graphTx.rollback();
     blobTx.rollback();
@@ -117,13 +119,13 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex getBucket() {
     return findVertex(bucketId, null);
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Iterable<OrientVertex> browseAssets(final Vertex bucket) {
     checkNotNull(bucket);
 
@@ -131,7 +133,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Iterable<OrientVertex> browseComponents(final Vertex bucket) {
     checkNotNull(bucket);
 
@@ -139,7 +141,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Iterable<OrientVertex> browseVertices(@Nullable final String className) {
     if (className == null) {
       return orientVertices(graphTx.getVertices());
@@ -151,7 +153,7 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findAsset(final Object vertexId, final Vertex bucket) {
     checkNotNull(vertexId);
     checkNotNull(bucket);
@@ -170,16 +172,24 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findAssetWithProperty(final String propName, final Object propValue,
                                             final Vertex bucket)
   {
     return findWithPropertyOwnedBy(V_ASSET, propName, propValue, E_OWNS_ASSET, bucket);
   }
 
+  @Override
+  @SuppressWarnings("unchecked")
+  public List<OrientVertex> findAssets(final Vertex component) {
+    List vertices = Lists.newArrayList(checkNotNull(component).getVertices(Direction.IN, E_PART_OF_COMPONENT));
+    return (List<OrientVertex>) vertices;
+  }
+
   @SuppressWarnings("unchecked")
   private OrientVertex findWithPropertyOwnedBy(String className, String propName, Object propValue,
-                                               String edgeLabel, Vertex bucket) {
+                                               String edgeLabel, Vertex bucket)
+  {
     checkNotNull(propName);
     checkNotNull(propValue);
     checkNotNull(bucket);
@@ -192,20 +202,22 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Iterable<OrientVertex> findAssets(@Nullable String whereClause,
                                            @Nullable Map<String, Object> parameters,
                                            @Nullable Iterable<Repository> repositories,
-                                           @Nullable String querySuffix) {
+                                           @Nullable String querySuffix)
+  {
     return findVertices(V_ASSET, whereClause, parameters, E_OWNS_ASSET, repositories, querySuffix);
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public long countAssets(@Nullable String whereClause,
                           @Nullable Map<String, Object> parameters,
                           @Nullable Iterable<Repository> repositories,
-                          @Nullable String querySuffix) {
+                          @Nullable String querySuffix)
+  {
     return countVertices(V_ASSET, whereClause, parameters, E_OWNS_ASSET, repositories, querySuffix);
   }
 
@@ -214,7 +226,8 @@ public class StorageTxImpl
                                               @Nullable Map<String, Object> parameters,
                                               @Nullable String edgeLabel,
                                               @Nullable Iterable<Repository> repositories,
-                                              @Nullable String querySuffix) {
+                                              @Nullable String querySuffix)
+  {
     String query = buildQuery(className, false, whereClause, edgeLabel, repositories, querySuffix);
     log.debug("Finding vertices with query: {}, parameters: {}", query, parameters);
     return graphTx.command(new OCommandSQL(query)).execute(parameters);
@@ -225,7 +238,8 @@ public class StorageTxImpl
                              @Nullable Map<String, Object> parameters,
                              @Nullable String edgeLabel,
                              @Nullable Iterable<Repository> repositories,
-                             @Nullable String querySuffix) {
+                             @Nullable String querySuffix)
+  {
     String query = buildQuery(className, true, whereClause, edgeLabel, repositories, querySuffix);
     log.debug("Counting vertices with query: {}, parameters: {}", query, parameters);
     List<ODocument> results = graphTx.getRawGraph().command(new OCommandSQL(query)).execute(parameters);
@@ -237,7 +251,8 @@ public class StorageTxImpl
                             @Nullable String whereClause,
                             @Nullable String edgeLabel,
                             @Nullable Iterable<Repository> repositories,
-                            @Nullable String querySuffix) {
+                            @Nullable String querySuffix)
+  {
     StringBuilder query = new StringBuilder();
     query.append("select");
     if (isCount) {
@@ -280,7 +295,7 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findComponent(final Object vertexId, final Vertex bucket) {
     checkNotNull(vertexId);
     checkNotNull(bucket);
@@ -291,32 +306,34 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findComponentWithProperty(final String propName, final Object propValue, final Vertex bucket) {
     return findWithPropertyOwnedBy(V_COMPONENT, propName, propValue, E_OWNS_COMPONENT, bucket);
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Iterable<OrientVertex> findComponents(@Nullable String whereClause,
                                                @Nullable Map<String, Object> parameters,
                                                @Nullable Iterable<Repository> repositories,
-                                               @Nullable String querySuffix) {
+                                               @Nullable String querySuffix)
+  {
     return findVertices(V_COMPONENT, whereClause, parameters, E_OWNS_COMPONENT, repositories, querySuffix);
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public long countComponents(@Nullable String whereClause,
                               @Nullable Map<String, Object> parameters,
                               @Nullable Iterable<Repository> repositories,
-                              @Nullable String querySuffix) {
+                              @Nullable String querySuffix)
+  {
     return countVertices(V_COMPONENT, whereClause, parameters, E_OWNS_COMPONENT, repositories, querySuffix);
   }
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findVertex(final Object vertexId, @Nullable final String className) {
     checkNotNull(vertexId);
 
@@ -329,9 +346,10 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex findVertexWithProperty(final String propName, final Object propValue,
-                                             @Nullable final String className) {
+                                             @Nullable final String className)
+  {
     checkNotNull(propName);
     checkNotNull(propValue);
 
@@ -344,7 +362,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex createAsset(final Vertex bucket) {
     checkNotNull(bucket);
 
@@ -355,7 +373,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex createComponent(final Vertex bucket) {
     checkNotNull(bucket);
 
@@ -366,7 +384,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public OrientVertex createVertex(final String className) {
     checkNotNull(className);
 
@@ -374,7 +392,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public NestedAttributesMap getAttributes(final OrientVertex vertex) {
     checkNotNull(vertex);
 
@@ -383,7 +401,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public void deleteVertex(final Vertex vertex) {
     checkNotNull(vertex);
 
@@ -391,7 +409,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public BlobRef createBlob(final InputStream inputStream, Map<String, String> headers) {
     checkNotNull(inputStream);
     checkNotNull(headers);
@@ -401,7 +419,7 @@ public class StorageTxImpl
 
   @Nullable
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public Blob getBlob(final BlobRef blobRef) {
     checkNotNull(blobRef);
 
@@ -409,7 +427,7 @@ public class StorageTxImpl
   }
 
   @Override
-  @Guarded(by=OPEN)
+  @Guarded(by = OPEN)
   public void deleteBlob(final BlobRef blobRef) {
     checkNotNull(blobRef);
 
@@ -417,11 +435,6 @@ public class StorageTxImpl
   }
 
   private static Iterable<OrientVertex> orientVertices(Iterable<Vertex> plainVertices) {
-    return Iterables.transform(plainVertices, new Function<Vertex, OrientVertex>() {
-      @Override
-      public OrientVertex apply(final Vertex vertex) {
-        return (OrientVertex) vertex;
-      }
-    });
+    return (Iterable<OrientVertex>) (Iterable) plainVertices;
   }
 }
