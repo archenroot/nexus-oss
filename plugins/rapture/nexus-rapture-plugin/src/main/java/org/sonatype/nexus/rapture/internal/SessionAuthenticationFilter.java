@@ -84,6 +84,7 @@ public class SessionAuthenticationFilter
 
   @Override
   protected boolean isRememberMe(final ServletRequest request) {
+    // TODO: Allow feature to be disabled globally by property, probably here is a good place?
     return WebUtils.isTrue(request, P_REMEMBER_ME);
   }
 
@@ -91,6 +92,7 @@ public class SessionAuthenticationFilter
   protected AuthenticationToken createToken(final ServletRequest request, final ServletResponse response)
       throws Exception
   {
+    // TODO: Resolve if we want to obscure username+password with base64 or not
     String username = WebUtils.getCleanParam(request, P_USERNAME);
     String password = WebUtils.getCleanParam(request, P_PASSWORD);
     return createToken(username, password, request, response);
