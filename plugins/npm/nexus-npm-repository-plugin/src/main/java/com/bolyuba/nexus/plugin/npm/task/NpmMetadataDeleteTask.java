@@ -57,7 +57,7 @@ public class NpmMetadataDeleteTask
         }
       }
       catch (Exception e) {
-        logger.info("Hosted npm repository error during rebuilding metadata of {}", repository, e);
+        logger.info("npm repository error during rebuilding metadata of {}", repository, e);
       }
     }
   }
@@ -77,7 +77,7 @@ public class NpmMetadataDeleteTask
             return input.getId();
           }
         });
-    return "Rebuild hosted npm metadata of repositories: " + repositories;
+    return "Delete npm metadata of repositories: " + repositories;
   }
 
   @Override
@@ -93,13 +93,13 @@ public class NpmMetadataDeleteTask
       }
       catch (NoSuchRepositoryException e) {
         throw new IllegalArgumentException(
-            "Rebuild hosted npm metadata task misconfiguration: no npm repository with ID " + getRepositoryId(), e);
+            "Delete npm metadata task misconfiguration: no npm repository with ID " + getRepositoryId(), e);
       }
     }
   }
 
   @Override
   protected String getRepositoryFieldId() {
-    return NpmHostedMetadataRebuildTaskDescriptor.FLD_REPOSITORY_ID;
+    return NpmMetadataDeleteTaskDescriptor.FLD_REPOSITORY_ID;
   }
 }
