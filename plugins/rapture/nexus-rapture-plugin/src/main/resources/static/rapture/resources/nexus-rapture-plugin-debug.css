@@ -37,21 +37,16 @@
  * @namespace NX.view.info
  */
 
-.nx-info {
-  margin: 12px;
-}
-
 .nx-info-entry td {
   padding-bottom: 4px;
 }
 
 .nx-info-entry-name {
   font-weight: bold;
-  text-align: right;
 }
 
 .nx-info-entry-value {
-  padding-left: 20px;
+  padding-left: 10px;
 }
 
 .nx-red-marker td {
