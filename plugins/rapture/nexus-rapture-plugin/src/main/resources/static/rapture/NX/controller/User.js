@@ -218,9 +218,7 @@ Ext.define('NX.controller.User', {
 
     win.getEl().mask(NX.I18n.get('GLOBAL_SIGN_IN_MASK'));
 
-    me.logDebug('Sign-in user: ' + values.username);
-
-    me.logDebug('HERE');
+    me.logDebug('Sign-in user: "' + values.username + '" ...');
 
     Ext.Ajax.request({
       url: NX.util.Url.urlOf('service/rapture/session'),
@@ -236,6 +234,8 @@ Ext.define('NX.controller.User', {
         win.getEl().unmask();
         NX.State.setUser({ id: values.username });
         win.close();
+
+        // invoke optional success callback registered on window
         if (win.options && Ext.isFunction(win.options.success)) {
           win.options.success.call(win.options.scope, win.options);
         }
@@ -257,10 +257,15 @@ Ext.define('NX.controller.User', {
     var me = this,
         win = button.up('window');
 
+    // invoke optional authenticateAction callback registered on window
     if (win.options && Ext.isFunction(win.options.authenticateAction)) {
       win.options.authenticateAction.call(me, button);
     }
   },
+
+  // TODO: anything that may change the authentication/session should probably not be
+  // TODO: done via extjs as it can batch, and the batch operation could implact the
+  // TODO: sanity of the requests if authentication changes mid execution of batch operations
 
   /**
    * @private
@@ -276,13 +281,15 @@ Ext.define('NX.controller.User', {
 
     win.getEl().mask(NX.I18n.get('GLOBAL_AUTHENTICATE_MASK'));
 
-    me.logDebug('Authenticate...');
+    me.logDebug('Authenticating user "' + values.username + '" ...');
 
     NX.direct.rapture_Security.authenticate(b64username, b64password, function (response) {
       win.getEl().unmask();
       if (Ext.isObject(response) && response.success) {
         NX.State.setUser(response.data);
         win.close();
+
+        // invoke optional success callback registered on window
         if (win.options && Ext.isFunction(win.options.success)) {
           win.options.success.call(win.options.scope, win.options);
         }
@@ -310,6 +317,8 @@ Ext.define('NX.controller.User', {
       win.getEl().unmask();
       if (Ext.isObject(response) && response.success) {
         win.close();
+
+        // invoke optional success callback registered on window
         if (win.options && Ext.isFunction(win.options.success)) {
           win.options.success.call(win.options.scope, response.data, win.options);
         }
