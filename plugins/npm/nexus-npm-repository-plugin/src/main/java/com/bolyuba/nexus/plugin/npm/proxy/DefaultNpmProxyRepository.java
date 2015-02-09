@@ -43,6 +43,7 @@ import org.sonatype.nexus.proxy.repository.AbstractProxyRepository;
 import org.sonatype.nexus.proxy.repository.DefaultRepositoryKind;
 import org.sonatype.nexus.proxy.repository.Repository;
 import org.sonatype.nexus.proxy.repository.RepositoryKind;
+import org.sonatype.nexus.proxy.storage.UnsupportedStorageOperationException;
 import org.sonatype.nexus.proxy.walker.WalkerFilter;
 
 import com.bolyuba.nexus.plugin.npm.NpmContentClass;
@@ -383,6 +384,32 @@ public class DefaultNpmProxyRepository
     finally {
       itemUidLock.unlock();
     }
+  }
+
+  @Override
+  public void deleteItem(boolean fromTask, ResourceStoreRequest storeRequest)
+      throws UnsupportedStorageOperationException, IllegalOperationException, ItemNotFoundException, StorageException
+  {
+    PackageRequest packageRequest = null;
+    try {
+      packageRequest = new PackageRequest(storeRequest);
+    }
+    catch (IllegalArgumentException e) {
+      // something completely different
+    }
+    if (packageRequest != null) {
+      if (packageRequest.isMetadata()) {
+        if (packageRequest.isRegistryRoot()) {
+          log.debug("Deleting registry root...");
+          getMetadataService().deleteAllMetadata();
+        }
+        else if (packageRequest.isPackageRoot()) {
+          log.debug("Deleting package {} root...", packageRequest.getName());
+          getMetadataService().deletePackage(packageRequest.getName());
+        }
+      }
+    }
+    super.deleteItem(fromTask, storeRequest);
   }
 
   @Override
