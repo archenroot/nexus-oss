@@ -26,6 +26,8 @@ import org.apache.shiro.subject.Subject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.google.common.base.Preconditions.checkState;
+
 /**
  * Session servlet, to expose end-point for configuration of Shiro authentication filter to
  * establish a user session.
@@ -49,9 +51,11 @@ public class SessionServlet
       throws ServletException, IOException
   {
     Subject subject = SecurityUtils.getSubject();
-    log.info("Create session: {}", subject.getPrincipal());
+    log.info("Created session for user: {}", subject.getPrincipal());
 
-    // TODO: Sanity check session is created and new?
+    // sanity check
+    checkState(subject.isAuthenticated());
+    checkState(subject.getSession(false) != null);
   }
 
   /**
@@ -62,7 +66,11 @@ public class SessionServlet
       throws ServletException, IOException
   {
     Subject subject = SecurityUtils.getSubject();
-    log.info("Delete session: {}", subject.getPrincipal());
+    log.info("Deleting session for user: {}", subject.getPrincipal());
     subject.logout();
+
+    // sanity check
+    checkState(!subject.isAuthenticated());
+    checkState(subject.getSession(false) == null);
   }
 }

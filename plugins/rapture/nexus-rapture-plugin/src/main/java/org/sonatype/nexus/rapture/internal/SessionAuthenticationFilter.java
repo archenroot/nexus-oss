@@ -29,7 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Rapture session authentication filter for {@link SessionServlet}.
+ * Session authentication filter for {@link SessionServlet}.
  *
  * Provides (very) basic {@code x-www-form-urlencoded} authentication support.
  *
@@ -42,7 +42,7 @@ public class SessionAuthenticationFilter
 {
   private static final Logger log = LoggerFactory.getLogger(SessionAuthenticationFilter.class);
 
-  public static final String NAME = "rapture-session-authc";
+  public static final String NAME = "session-authc";
 
   public static final String P_USERNAME = "username";
 
