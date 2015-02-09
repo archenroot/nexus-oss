@@ -228,7 +228,7 @@ Ext.define('NX.controller.User', {
       params: {
         username: values.username,
         password: values.password,
-        rememberMe: values.remember // FIXME: normalize param name
+        rememberMe: values.rememberMe
       },
       scope: me,
       suppressStatus: true,
