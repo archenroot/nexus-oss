@@ -31,6 +31,7 @@ import org.sonatype.nexus.proxy.LocalStorageException;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.StorageException;
 import org.sonatype.nexus.proxy.access.Action;
+import org.sonatype.nexus.proxy.events.RepositoryRegistryEventRemove;
 import org.sonatype.nexus.proxy.item.AbstractStorageItem;
 import org.sonatype.nexus.proxy.item.ContentLocator;
 import org.sonatype.nexus.proxy.item.DefaultStorageFileItem;
@@ -55,6 +56,8 @@ import com.bolyuba.nexus.plugin.npm.service.NpmBlob;
 import com.bolyuba.nexus.plugin.npm.service.PackageRequest;
 import com.bolyuba.nexus.plugin.npm.service.PackageRoot;
 import com.bolyuba.nexus.plugin.npm.service.PackageVersion;
+import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.Subscribe;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.eclipse.sisu.Description;
 
@@ -107,6 +110,14 @@ public class DefaultNpmHostedRepository
     log.info("Recreated npm metadata on {} (packageRoots={}/packageVersions={})", this,
         processor.getPackageRoots(), processor.getPackageVersions());
     return processor.getPackageRoots() > 0;
+  }
+
+  @AllowConcurrentEvents
+  @Subscribe
+  public void onEvent(final RepositoryRegistryEventRemove event) {
+    if (event.getRepository() == this) {
+      getMetadataService().deleteAllMetadata();
+    }
   }
 
   @Override

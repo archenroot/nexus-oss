@@ -30,6 +30,7 @@ import org.sonatype.nexus.proxy.RemoteStorageException;
 import org.sonatype.nexus.proxy.ResourceStoreRequest;
 import org.sonatype.nexus.proxy.StorageException;
 import org.sonatype.nexus.proxy.access.Action;
+import org.sonatype.nexus.proxy.events.RepositoryRegistryEventRemove;
 import org.sonatype.nexus.proxy.item.AbstractStorageItem;
 import org.sonatype.nexus.proxy.item.ContentLocator;
 import org.sonatype.nexus.proxy.item.DefaultStorageFileItem;
@@ -56,6 +57,8 @@ import com.bolyuba.nexus.plugin.npm.service.tarball.TarballRequest;
 import com.bolyuba.nexus.plugin.npm.service.tarball.TarballSource;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.eventbus.AllowConcurrentEvents;
+import com.google.common.eventbus.Subscribe;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.eclipse.sisu.Description;
 
@@ -105,6 +108,14 @@ public class DefaultNpmProxyRepository
 
     this.repositoryKind = new DefaultRepositoryKind(NpmProxyRepository.class, null);
     this.mimeRulesSource = new NpmMimeRulesSource();
+  }
+
+  @AllowConcurrentEvents
+  @Subscribe
+  public void onEvent(final RepositoryRegistryEventRemove event) {
+    if (event.getRepository() == this) {
+      getMetadataService().deleteAllMetadata();
+    }
   }
 
   @Override
@@ -196,12 +207,14 @@ public class DefaultNpmProxyRepository
             return createStorageFileItem(storeRequest,
                 proxyMetadataService.produceRegistryRoot(packageRequest));
           }
+          log.debug("Unknown registry special {}", packageRequest.getPath());
           throw new ItemNotFoundException(
               reasonFor(storeRequest, this, "No content for path %s", storeRequest.getRequestPath()));
         }
       }
       catch (IllegalArgumentException ignore) {
         // ignore, will do it standard way if needed
+        log.debug("Ignored IAEx", ignore);
       }
       // this must be tarball, check it out do we have it locally, and if yes, and metadata checksum matches, give it
       final TarballRequest tarballRequest = getMetadataService().createTarballRequest(storeRequest);

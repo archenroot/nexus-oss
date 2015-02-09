@@ -61,6 +61,19 @@ public class ProxyMetadataServiceImpl
   }
 
   @Override
+  public boolean deleteAllMetadata() {
+    log.info("Deleting all proxied npm metadata from {}", getNpmRepository().getId());
+    return metadataStore.deletePackages(getNpmRepository());
+  }
+
+  @Override
+  public boolean deletePackage(final String packageName) {
+    checkNotNull(packageName, "null package name");
+    log.info("Deleting proxied npm package {} metadata from {}", packageName, getNpmRepository().getId());
+    return metadataStore.deletePackageByName(getNpmRepository(), packageName);
+  }
+
+  @Override
   public boolean expireMetadataCaches(final PackageRequest request) {
     checkNotNull(request);
     if (request.isPackage()) {
