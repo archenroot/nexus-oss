@@ -334,8 +334,14 @@ Ext.define('NX.controller.User', {
 
     me.logDebug('Sign-out');
 
-    NX.direct.rapture_Security.signOut(function (response) {
-      if (Ext.isObject(response) && response.success) {
+    // TODO: Mask?
+
+    Ext.Ajax.request({
+      url: NX.util.Url.urlOf('service/rapture/session'),
+      method: 'DELETE',
+      scope: me,
+      suppressStatus: true,
+      success: function() {
         NX.State.setUser(undefined);
       }
     });
