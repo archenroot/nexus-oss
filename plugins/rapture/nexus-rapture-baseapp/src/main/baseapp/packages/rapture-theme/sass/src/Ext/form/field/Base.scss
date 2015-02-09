@@ -8,6 +8,6 @@
  * cls: 'x-form-readonly'
  */
 
-.x-form-field[readonly="readonly"] {
+.x-form-field[readonly="readonly"].x-form-field:not([role="combobox"]) {
   background-color: $color-smoke;
 }
