@@ -48,7 +48,8 @@
     <nexus-test-features>
       nexus-it-helper-plugin,\
       nexus-p2-bridge-plugin,\
-      nexus-p2-repository-plugin
+      nexus-p2-repository-plugin,\
+      nexus-repository-nuget
     </nexus-test-features>
   </properties>
 
@@ -143,6 +144,12 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>com.sonatype.nexus.plugins</groupId>
+      <artifactId>nexus-repository-nuget</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!--
     Additional plugin/helper features
     -->
@@ -167,6 +174,15 @@
     <dependency>
       <groupId>org.sonatype.nexus.plugins</groupId>
       <artifactId>nexus-p2-repository-plugin</artifactId>
+      <version>${nexus.version}</version>
+      <classifier>features</classifier>
+      <type>xml</type>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.sonatype.nexus.plugins</groupId>
+      <artifactId>nexus-repository-nuget</artifactId>
       <version>${nexus.version}</version>
       <classifier>features</classifier>
       <type>xml</type>
@@ -333,6 +349,7 @@
                     <feature>nexus-it-helper-plugin</feature>
                     <feature>nexus-p2-bridge-plugin</feature>
                     <feature>nexus-p2-repository-plugin</feature>
+                    <feature>nexus-repository-nuget</feature>
                   </installedFeatures>
                 </configuration>
               </execution>
