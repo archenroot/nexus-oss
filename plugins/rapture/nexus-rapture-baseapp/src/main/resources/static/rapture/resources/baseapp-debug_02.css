@@ -15160,12 +15160,16 @@
   border-width: 1px !important;
 }
 
-/* line 32, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/Panel.scss */
+/* line 31, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/Panel.scss */
 .x-panel-nx-subsection .x-panel-header {
+  padding: 0 !important;
+}
+/* line 34, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/Panel.scss */
+.x-panel-nx-subsection .x-panel-header-text-container {
   padding: 10px 0 10px 0 !important;
 }
 
-/* line 37, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/Panel.scss */
+/* line 39, ../../../baseapp/packages/rapture-theme/sass/src/Ext/form/Panel.scss */
 .x-panel-nx-subsection-framed {
   border: 1px #333333 solid;
 }
