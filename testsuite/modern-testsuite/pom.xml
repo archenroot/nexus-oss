@@ -181,7 +181,7 @@
     </dependency>
 
     <dependency>
-      <groupId>com.sonatype.nexus.plugins</groupId>
+      <groupId>org.sonatype.nexus.plugins</groupId>
       <artifactId>nexus-repository-nuget</artifactId>
       <version>${nexus.version}</version>
       <classifier>features</classifier>

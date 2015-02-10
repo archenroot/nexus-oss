@@ -426,7 +426,7 @@
       </dependency>
 
       <dependency>
-        <groupId>com.sonatype.nexus.plugins</groupId>
+        <groupId>org.sonatype.nexus.plugins</groupId>
         <artifactId>nexus-repository-nuget</artifactId>
         <version>3.0.0-SNAPSHOT</version>
       </dependency>
