@@ -54,51 +54,38 @@ Ext.define('NX.coreui.store.SearchCriteria', {
       }
     },
     {
-      id: 'groupid',
+      id: 'group',
       config: {
-        fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_GROUP_ID'),
+        fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_GROUP'),
         width: 250
       }
     },
     {
-      id: 'artifactid',
+      id: 'name',
       config: {
-        fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_ARTIFACT_ID')
+        fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_NAME'),
+        width: 200
       }
     },
     {
-      id: 'classifier',
+      id: 'attributes.maven.classifier',
       config: {
         fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_CLASSIFIER')
       }
     },
     {
-      id: 'packaging',
+      id: 'attributes.maven.packaging',
       config: {
         fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_PACKAGING')
       }
     },
     {
-      id: 'sha-1',
+      id: 'assets.attributes.checksum.sha1',
       config: {
         fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_SHA_1'),
         width: 250
       }
-    },
-    {
-      id: 'classname',
-      config: {
-        fieldLabel: NX.I18n.get('BROWSE_SEARCH_COMPONENTS_CRITERIA_CLASS_NAME'),
-        width: 250
-      }
     }
-    // TODO Comment for now as we do not yet support symbolic name search
-    //{
-    //  id: 'symbolicname',
-    //  config: {
-    //    fieldLabel: 'Symbolic name'
-    //  }
-    //}
   ],
 
   sortOnLoad: true,

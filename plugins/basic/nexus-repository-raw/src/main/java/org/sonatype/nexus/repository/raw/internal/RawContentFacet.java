@@ -34,7 +34,7 @@ public interface RawContentFacet
   @Nullable
   RawContent get(String path) throws IOException;
 
-  void put(String path, RawContent content) throws IOException, InvalidContentException;
+  Object put(String path, RawContent content) throws IOException, InvalidContentException;
 
   void updateLastUpdated(String path, final DateTime lastUpdated) throws IOException;
 

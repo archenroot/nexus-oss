@@ -26,4 +26,26 @@ class SearchResultXO
   String groupId
   String artifactId
   String format
+
+  boolean equals(final o) {
+    if (this.is(o)) return true
+    if (getClass() != o.class) return false
+
+    SearchResultXO that = (SearchResultXO) o
+
+    if (artifactId != that.artifactId) return false
+    if (format != that.format) return false
+    if (groupId != that.groupId) return false
+
+    return true
+  }
+
+  int hashCode() {
+    int result
+    result = groupId.hashCode()
+    result = 31 * result + artifactId.hashCode()
+    result = 31 * result + format.hashCode()
+    return result
+  }
+
 }

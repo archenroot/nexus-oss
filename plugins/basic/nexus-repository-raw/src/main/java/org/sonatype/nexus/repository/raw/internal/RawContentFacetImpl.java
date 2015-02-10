@@ -105,7 +105,7 @@ public class RawContentFacetImpl
 
   @Nullable
   @Override
-  public void put(final String path, final RawContent content) throws IOException, InvalidContentException {
+  public Object put(final String path, final RawContent content) throws IOException, InvalidContentException {
     try (StorageTx tx = getStorage().openTx()) {
       final OrientVertex bucket = tx.getBucket();
       OrientVertex component = getComponent(tx, path, bucket);
@@ -144,6 +144,8 @@ public class RawContentFacetImpl
       }
 
       tx.commit();
+
+      return component.getId();
     }
   }
 

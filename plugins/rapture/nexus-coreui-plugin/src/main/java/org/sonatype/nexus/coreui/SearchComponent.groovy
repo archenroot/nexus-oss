@@ -14,26 +14,28 @@ package org.sonatype.nexus.coreui
 
 import com.softwarementors.extjs.djn.config.annotations.DirectAction
 import com.softwarementors.extjs.djn.config.annotations.DirectMethod
-import org.apache.commons.io.FilenameUtils
-import org.apache.lucene.search.BooleanClause
-import org.apache.lucene.search.BooleanQuery
-import org.apache.maven.index.IteratorSearchResponse
-import org.apache.maven.index.MAVEN
-import org.apache.maven.index.SearchType
-import org.apache.maven.index.artifact.GavCalculator
 import org.apache.shiro.authz.annotation.RequiresPermissions
+import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.client.Client
+import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.index.query.BoolQueryBuilder
+import org.elasticsearch.index.query.QueryBuilder
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.search.SearchHit
 import org.sonatype.nexus.extdirect.DirectComponent
 import org.sonatype.nexus.extdirect.DirectComponentSupport
-import org.sonatype.nexus.extdirect.model.PagedResponse
 import org.sonatype.nexus.extdirect.model.StoreLoadParameters
-import org.sonatype.nexus.index.IndexerManager
-import org.sonatype.nexus.proxy.NoSuchRepositoryException
-import org.sonatype.nexus.proxy.registry.RepositoryRegistry
 
 import javax.annotation.Nullable
 import javax.inject.Inject
 import javax.inject.Named
+import javax.inject.Provider
 import javax.inject.Singleton
+import java.util.concurrent.TimeUnit
+
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_FORMAT
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_GROUP
+import static org.sonatype.nexus.repository.storage.StorageFacet.P_NAME
 
 /**
  * Search {@link DirectComponent}.
@@ -48,14 +50,7 @@ extends DirectComponentSupport
 {
 
   @Inject
-  IndexerManager indexerManager
-
-  @Inject
-  @Named('maven2')
-  GavCalculator gavCalculator
-
-  @Inject
-  RepositoryRegistry repositoryRegistry
+  Provider<Client> client
 
   /**
    * Search based on configured filters and return search results grouped on GA level.
@@ -65,45 +60,46 @@ extends DirectComponentSupport
    */
   @DirectMethod
   @RequiresPermissions('nexus:repositories:read')
-  PagedResponse<SearchResultXO> read(final @Nullable StoreLoadParameters parameters) {
-    BooleanQuery bq = buildQuery(parameters)
-    Set<String> gas = []
-    IteratorSearchResponse iterator = null
-    try {
-      iterator = indexerManager.searchQueryIterator(
-          bq, null, null, null, null, false, null
-      )
+  List<SearchResultXO> read(final @Nullable StoreLoadParameters parameters) {
 
-      gas = iterator.collect { info ->
-        return "${info.groupId}:${info.artifactId}" as String
-      } as SortedSet
+    SearchResponse response = client.get().prepareSearch()
+        .setTypes('component')
+        .setQuery(buildQuery(parameters))
+        .setScroll(new TimeValue(10, TimeUnit.SECONDS))
+        .setSize(100)
+        .execute()
+        .actionGet()
 
-      log.debug('Query: {}, Hits: {}', bq, iterator.totalHitsCount)
-    }
-    finally {
-      iterator?.close()
-    }
+    List<SearchResultXO> gas = []
 
-    List<SearchResultXO> results = []
-    int i = 0;
-    for (String ga : gas) {
-      i++
-      if (i <= parameters.start) {
-        continue
+      repeat:
+    while (response.hits.hits.length > 0) {
+      for (SearchHit hit : response.hits.hits) {
+        if (gas.size() < 100) {
+          // TODO check security
+          def group = hit.source[P_GROUP]
+          def name = hit.source[P_NAME]
+          def ga = new SearchResultXO(
+              id: "${group}:${name} (${hit.score})",
+              groupId: group,
+              artifactId: name,
+              format: hit.source[P_FORMAT]
+          )
+          if (!gas.contains(ga)) {
+            gas.add(ga)
+          }
+        }
+        else {
+          break repeat
+        }
       }
-      if (i > parameters.start + parameters.limit) {
-        break
-      }
-      def segments = ga.split(':')
-      results << new SearchResultXO(
-          id: ga,
-          groupId: segments[0],
-          artifactId: segments[1],
-          format: 'Maven2'
-      )
+      response = client.get().prepareSearchScroll(response.getScrollId())
+          .setScroll(new TimeValue(10, TimeUnit.SECONDS))
+          .execute()
+          .actionGet();
     }
 
-    return new PagedResponse<SearchResultXO>(gas.size(), results)
+    return gas
   }
 
   /**
@@ -116,117 +112,25 @@ extends DirectComponentSupport
   @DirectMethod
   @RequiresPermissions('nexus:repositories:read')
   List<SearchResultVersionXO> readVersions(final @Nullable StoreLoadParameters parameters) {
-    BooleanQuery bq = buildQuery(parameters)
-    IteratorSearchResponse iterator = null
-    try {
-      iterator = indexerManager.searchQueryIterator(
-          bq, null, null, null, null, false, null
-      )
-      log.debug('Query: {}, Hits: {}', bq, iterator.totalHitsCount)
-      def versions = [] as SortedSet<SearchResultVersionXO>
-      iterator.each { ai ->
-        String path = gavCalculator.gavToPath(ai.calculateGav())
-        String name = new File(path).getName()
-        String repositoryName = ai.repository
-        try {
-          repositoryName = repositoryRegistry.getRepository(ai.repository).name
-        }
-        catch (NoSuchRepositoryException e) {
-          // ignore, will use repo id
-        }
-        versions << new SearchResultVersionXO(
-            groupId: ai.groupId,
-            artifactId: ai.artifactId,
-            version: ai.version,
-            repositoryId: ai.repository,
-            repositoryName: repositoryName,
-            path: path,
-            name: name,
-            type: FilenameUtils.getExtension(name)
-        )
-      }
-      def versionOrder = 0
-      return versions.collect { version ->
-        version.versionOrder = versionOrder++
-        return version
-      }
-    }
-    finally {
-      iterator?.close()
-    }
+    return null
   }
 
   /**
-   * Builds a Lucene query based on configured filters.
+   * Builds a QueryBuilder based on configured filters.
    *
    * @param parameters store parameters
-   * @return Lucene query
    */
-  private BooleanQuery buildQuery(final StoreLoadParameters parameters) {
-    BooleanQuery bq = new BooleanQuery()
-    def keywordOccur = BooleanClause.Occur.SHOULD
-
-    if (parameters.getFilter('groupid')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.GROUP_ID, parameters.getFilter('groupid'), SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-      keywordOccur = BooleanClause.Occur.MUST
-    }
-    if (parameters.getFilter('artifactid')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.ARTIFACT_ID, parameters.getFilter('artifactid'), SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-      keywordOccur = BooleanClause.Occur.MUST
-    }
-    if (parameters.getFilter('version')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.VERSION, parameters.getFilter('version'), SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-    }
-    if (parameters.getFilter('classifier')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.CLASSIFIER, parameters.getFilter('classifier'), SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-    }
-    if (parameters.getFilter('packaging')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.PACKAGING, parameters.getFilter('packaging'), SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-    }
-    if (parameters.getFilter('classname')) {
-      bq.add(
-          indexerManager.constructQuery(MAVEN.CLASSNAMES, parameters.getFilter('classname'), SearchType.SCORED),
-          BooleanClause.Occur.MUST
-      );
-    }
-    if (parameters.getFilter('sha-1')) {
-      def sha1 = parameters.getFilter('sha-1')
-      bq.add(
-          indexerManager.constructQuery(MAVEN.SHA1, sha1, sha1.length() < 40 ? SearchType.SCORED : SearchType.EXACT),
-          BooleanClause.Occur.MUST
-      );
-    }
-    if (parameters.getFilter('keyword')) {
-      def keyword = parameters.getFilter('keyword')
-      if (!parameters.getFilter('groupid')) {
-        bq.add(
-            indexerManager.constructQuery(MAVEN.GROUP_ID, keyword, SearchType.SCORED),
-            keywordOccur
-        );
+  private QueryBuilder buildQuery(final StoreLoadParameters parameters) {
+    BoolQueryBuilder query = QueryBuilders.boolQuery()
+    parameters.filters?.each { filter ->
+      if ('keyword' == filter.property) {
+        query.must(QueryBuilders.queryString(filter.value))
       }
-      if (!parameters.getFilter('artifactid')) {
-        bq.add(
-            indexerManager.constructQuery(MAVEN.ARTIFACT_ID, keyword, SearchType.SCORED),
-            keywordOccur
-        );
+      else {
+        query.must(QueryBuilders.matchQuery(filter.property, filter.value))
       }
     }
-    return bq
+    return query
   }
 
 }

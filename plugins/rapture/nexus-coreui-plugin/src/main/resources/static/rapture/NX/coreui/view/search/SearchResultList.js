@@ -48,15 +48,6 @@ Ext.define('NX.coreui.view.search.SearchResultList', {
       flex: 1
     },
     { header: 'Format', dataIndex: 'format', width: 70, hidden: true }
-  ],
-
-  dockedItems: [
-    {
-      xtype: 'pagingtoolbar',
-      store: 'SearchResult',
-      dock: 'top',
-      displayInfo: false
-    }
   ]
 
 });

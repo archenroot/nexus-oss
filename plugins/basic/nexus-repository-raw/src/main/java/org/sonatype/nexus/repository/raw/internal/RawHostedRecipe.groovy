@@ -16,6 +16,7 @@ import org.sonatype.nexus.repository.RecipeSupport
 import org.sonatype.nexus.repository.Repository
 import org.sonatype.nexus.repository.Type
 import org.sonatype.nexus.repository.http.HttpHandlers
+import org.sonatype.nexus.repository.search.SearchFacet
 import org.sonatype.nexus.repository.security.SecurityHandler
 import org.sonatype.nexus.repository.storage.StorageFacetImpl
 import org.sonatype.nexus.repository.types.HostedType
@@ -59,6 +60,9 @@ class RawHostedRecipe
   Provider<StorageFacetImpl> storageFacet
 
   @Inject
+  Provider<SearchFacet> searchFacet
+
+  @Inject
   TimingHandler timingHandler
 
   @Inject
@@ -81,6 +85,7 @@ class RawHostedRecipe
     repository.attach(rawIndexFacet.get())
     repository.attach(rawContentFacet.get())
     repository.attach(storageFacet.get())
+    repository.attach(searchFacet.get());
   }
 
   /**
