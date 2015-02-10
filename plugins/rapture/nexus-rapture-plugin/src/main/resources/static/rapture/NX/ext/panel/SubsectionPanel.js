@@ -20,12 +20,13 @@
 Ext.define('NX.ext.panel.SubsectionPanel', {
   extend: 'Ext.panel.Panel',
   alias: 'widget.nx-subsection-panel',
-  ui: 'nx-inset',
 
   layout: {
     type: 'vbox',
     align: 'stretch'
   },
+
+  padding: '12px',
 
   autoScroll: true,
 
