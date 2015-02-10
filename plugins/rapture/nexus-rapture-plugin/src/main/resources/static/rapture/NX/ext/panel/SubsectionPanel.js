@@ -27,6 +27,8 @@ Ext.define('NX.ext.panel.SubsectionPanel', {
     align: 'stretch'
   },
 
+  autoScroll: true,
+
   /**
    * @override
    */
