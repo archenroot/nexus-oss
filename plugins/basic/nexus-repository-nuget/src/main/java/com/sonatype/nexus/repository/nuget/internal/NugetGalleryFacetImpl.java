@@ -46,6 +46,7 @@ import org.eclipse.aether.version.VersionScheme;
 import org.odata4j.producer.InlineCount;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.sonatype.nexus.repository.nuget.internal.NugetProperties.*;
 import static java.util.Arrays.asList;
 import static org.odata4j.producer.resources.OptionsQueryParser.parseInlineCount;
 import static org.odata4j.producer.resources.OptionsQueryParser.parseSkip;
@@ -64,15 +65,13 @@ public class NugetGalleryFacetImpl
     implements NugetGalleryFacet
 {
 
-  public static final String P_LOCATION = "location";
-
   public static final String NUGET = "nuget";
-
-  private StorageFacet storage;
 
   public static final String NO_NAMESPACES = "";
 
   private static final VersionScheme SCHEME = new GenericVersionScheme();
+
+  private StorageFacet storage;
 
   // ----------------------------------------------------------------------
 
@@ -145,7 +144,7 @@ public class NugetGalleryFacetImpl
     log.debug("Select: " + query);
 
     final Map<String, String> extra =
-        ImmutableMap.of("BASEURI", base, "ENDPOINT", name, "LASTUPDATED",
+        ImmutableMap.of("BASEURI", base, "ENDPOINT", name, LAST_UPDATED,
             ODataFeedUtils.datetime(System.currentTimeMillis()), "NAMESPACES", NO_NAMESPACES);
 
     final StringBuilder xml = new StringBuilder();
@@ -154,7 +153,7 @@ public class NugetGalleryFacetImpl
 
     // NEXUS-6822 Visual Studio doesn't send a sort order by default, leading to unusable results
     if (!query.containsKey("$orderby")) {
-      query.put("$orderby", "DownloadCount desc");
+      query.put("$orderby", P_DOWNLOAD_COUNT + " desc");
     }
 
     ComponentQuery componentQuery = ODataUtils.query(query, false);
@@ -250,7 +249,7 @@ public class NugetGalleryFacetImpl
       }
       // TODO: Add whatever other properties we care about for nuget assets
 
-      maintainAggregateInfo(storageTx, metadata.get("ID"));
+      maintainAggregateInfo(storageTx, metadata.get(ID));
 
       storageTx.deleteBlob(tempBlobRef);
       storageTx.commit();
@@ -258,7 +257,7 @@ public class NugetGalleryFacetImpl
   }
 
   private String createBlobName(OrientVertex component) {
-    return component.getProperty("name") + " " + component.getProperty("version") + "@" + getRepository().getName();
+    return component.getProperty(P_NAME) + " " + component.getProperty(P_VERSION) + "@" + getRepository().getName();
   }
 
   /**
@@ -275,19 +274,17 @@ public class NugetGalleryFacetImpl
 
     final Iterable<OrientVertex> components = findComponentsById(storageTx, id);
     for (OrientVertex component : components) {
-
       final NestedAttributesMap nugetAttributes = storageTx.getAttributes(component).child(NUGET);
-      final Boolean is_prerelease = nugetAttributes.get("is_prerelease", Boolean.class);
-      if (!is_prerelease) {
+
+      final boolean isPrerelease = checkNotNull(nugetAttributes.get(P_IS_PRERELEASE, Boolean.class));
+      if (!isPrerelease) {
         releases.add(component);
       }
       allReleases.add(component);
 
-      final Integer versionDownloadCount = nugetAttributes.get("version_download_count", Integer.class);
-      totalDownloadCount += checkNotNull(versionDownloadCount);
+      final int versionDownloadCount = checkNotNull(nugetAttributes.get(P_VERSION_DOWNLOAD_COUNT, Integer.class));
+      totalDownloadCount += versionDownloadCount;
     }
-
-    // set "download_count", "latest_version", "absolute_latest_version" fields
 
     OrientVertex latestVersion = releases.isEmpty() ? null : releases.last();
     OrientVertex absoluteLatestVersion = allReleases.isEmpty() ? null : releases.last();
@@ -295,16 +292,16 @@ public class NugetGalleryFacetImpl
     for (OrientVertex component : allReleases) {
       final NestedAttributesMap nugetAttributes = storageTx.getAttributes(component).child(NUGET);
 
-      nugetAttributes.set("is_latest_version", component.equals(latestVersion));
-      nugetAttributes.set("is_absolute_latest_version", component.equals(absoluteLatestVersion));
+      nugetAttributes.set(P_IS_LATEST_VERSION, component.equals(latestVersion));
+      nugetAttributes.set(P_IS_ABSOLUTE_LATEST_VERSION, component.equals(absoluteLatestVersion));
 
-      nugetAttributes.set("download_count", totalDownloadCount);
+      nugetAttributes.set(P_DOWNLOAD_COUNT, totalDownloadCount);
     }
   }
 
   private Iterable<OrientVertex> findComponentsById(final StorageTx storageTx, final Object id) {
     final String whereClause = "name = :name";
-    Map<String, Object> parameters = ImmutableMap.of("name", id);
+    Map<String, Object> parameters = ImmutableMap.of(P_NAME, id);
     return storageTx.findComponents(whereClause, parameters, getRepositories(), null);
   }
 
@@ -343,17 +340,17 @@ public class NugetGalleryFacetImpl
           inputStream);
       Map<String, String> metadata = NuspecSplicer.extractNuspecData(hashingStream);
 
-      metadata.put("PACKAGESIZE", String.valueOf(hashingStream.count()));
+      metadata.put(PACKAGE_SIZE, String.valueOf(hashingStream.count()));
       HashCode code = hashingStream.hashes().get(HashAlgorithm.SHA512);
-      metadata.put("PACKAGEHASH", new String(Base64.encodeBase64(code.asBytes()), Charsets.UTF_8));
-      metadata.put("PACKAGEHASHALGORITHM", "SHA512");
+      metadata.put(PACKAGE_HASH, new String(Base64.encodeBase64(code.asBytes()), Charsets.UTF_8));
+      metadata.put(PACKAGE_HASH_ALGORITHM, "SHA512");
 
       // Note: These are defaults that hold for locally-published packages,
       // but should be overridden for remotely fetched content
       final String creationTime = ODataFeedUtils.datetime(System.currentTimeMillis());
-      metadata.put("CREATED", creationTime);
-      metadata.put("LASTUPDATED", creationTime);
-      metadata.put("PUBLISHED", creationTime);
+      metadata.put(CREATED, creationTime);
+      metadata.put(LAST_UPDATED, creationTime);
+      metadata.put(PUBLISHED, creationTime);
 
       return metadata;
     }
@@ -365,11 +362,21 @@ public class NugetGalleryFacetImpl
     }
   }
 
+  private String checkVersion(String stringValue) {
+    try {
+      SCHEME.parseVersion(checkNotNull(stringValue));
+      return stringValue;
+    }
+    catch (InvalidVersionSpecificationException e) {
+      throw new IllegalArgumentException("Bad version syntax: " + stringValue);
+    }
+  }
+
   private OrientVertex createOrUpdateComponent(final StorageTx storageTx, final OrientVertex bucket,
                                                final Map<String, String> data)
   {
-    final String id = checkNotNull(data.get("ID"));
-    final String version = checkNotNull(data.get("VERSION"));
+    final String id = checkNotNull(data.get(ID));
+    final String version = checkVersion(data.get(VERSION));
 
     final OrientVertex component = findOrCreateComponent(storageTx, bucket, id, version);
 
@@ -377,49 +384,41 @@ public class NugetGalleryFacetImpl
     final NestedAttributesMap nugetAttr = attributes.child(NUGET);
 
     // Force the version download count to zero if it wasn't provided nor previously set
-    if (!data.containsKey("VERSIONDOWNLOADCOUNT") && !nugetAttr.contains("version_download_count")) {
-      data.put("VERSIONDOWNLOADCOUNT", "0");
+    if (!data.containsKey(VERSION_DOWNLOAD_COUNT) && !nugetAttr.contains(P_VERSION_DOWNLOAD_COUNT)) {
+      data.put(VERSION_DOWNLOAD_COUNT, "0");
     }
 
-    nugetAttr.set("id", data.get("ID"));
-
-    try {
-      SCHEME.parseVersion(data.get("VERSION"));
-    }
-    catch (InvalidVersionSpecificationException e) {
-      throw new IllegalArgumentException("Bad version syntax: " + data.get("VERSION"));
-    }
-    nugetAttr.set("version", data.get("VERSION"));
-
-    nugetAttr.set(P_LOCATION, data.get("LOCATION"));
-    nugetAttr.set("authors", data.get("AUTHORS"));
-    nugetAttr.set("copyright", data.get("COPYRIGHT"));
-    nugetAttr.set("created", data.get("CREATED"));
-    nugetAttr.set("dependencies", data.get("DEPENDENCIES"));
-    nugetAttr.set("description", data.get("DESCRIPTION"));
-    if (data.containsKey("DOWNLOADCOUNT")) {
+    nugetAttr.set(P_AUTHORS, data.get(AUTHORS));
+    nugetAttr.set(P_COPYRIGHT, data.get(COPYRIGHT));
+    nugetAttr.set(P_CREATED, data.get(CREATED));
+    nugetAttr.set(P_DEPENDENCIES, data.get(DEPENDENCIES));
+    nugetAttr.set(P_DESCRIPTION, data.get(DESCRIPTION));
+    if (data.containsKey(DOWNLOAD_COUNT)) {
       // for proxies, take whatever they give us here. for hosted, it will be computed later anyway
-      nugetAttr.set("download_count", Integer.parseInt(data.get("DOWNLOADCOUNT")));
+      nugetAttr.set(P_DOWNLOAD_COUNT, Integer.parseInt(data.get(DOWNLOAD_COUNT)));
     }
-    nugetAttr.set("gallery_details_url", data.get("GALLERYDETAILSURL"));
-    nugetAttr.set("icon_url", data.get("ICONURL"));
-    nugetAttr.set("is_prerelease", Boolean.parseBoolean(data.get("ISPRERELEASE")));
-    nugetAttr.set("last_updated", data.get("LASTUPDATED"));
-    nugetAttr.set("published", data.get("PUBLISHED"));
-    nugetAttr.set("language", data.get("LANGUAGE"));
-    nugetAttr.set("license_url", data.get("LICENSEURL"));
-    nugetAttr.set("package_hash", data.get("PACKAGEHASH"));
-    nugetAttr.set("package_hash_algorithm", data.get("PACKAGEHASHALGORITHM"));
-    nugetAttr.set("package_size", data.get("PACKAGESIZE"));
-    nugetAttr.set("project_url", data.get("PROJECTURL"));
-    nugetAttr.set("report_abuse_url", data.get("REPORTABUSEURL"));
-    nugetAttr.set("release_notes", data.get("RELEASENOTES"));
-    nugetAttr.set("require_license_acceptance", Boolean.parseBoolean(data.get("REQUIRELICENSEACCEPTANCE")));
-    nugetAttr.set("summary", data.get("SUMMARY"));
-    nugetAttr.set("tags", data.get("TAGS"));
-    nugetAttr.set("title", data.get("TITLE"));
-    if (data.containsKey("VERSIONDOWNLOADCOUNT")) {
-      nugetAttr.set("version_download_count", Integer.parseInt(data.get("VERSIONDOWNLOADCOUNT")));
+    nugetAttr.set(P_GALLERY_DETAILS_URL, data.get(GALLERY_DETAILS_URL));
+    nugetAttr.set(P_ICON_URL, data.get(ICON_URL));
+    nugetAttr.set(P_ID, data.get(ID));
+    nugetAttr.set(P_IS_PRERELEASE, Boolean.parseBoolean(data.get(IS_PRERELEASE)));
+    nugetAttr.set(P_LANGUAGE, data.get(LANGUAGE));
+    nugetAttr.set(P_LAST_UPDATED, data.get(LAST_UPDATED));
+    nugetAttr.set(P_LICENSE_URL, data.get(LICENSE_URL));
+    nugetAttr.set(P_LOCATION, data.get(LOCATION));
+    nugetAttr.set(P_PACKAGE_HASH, data.get(PACKAGE_HASH));
+    nugetAttr.set(P_PACKAGE_HASH_ALGORITHM, data.get(PACKAGE_HASH_ALGORITHM));
+    nugetAttr.set(P_PACKAGE_SIZE, data.get(PACKAGE_SIZE));
+    nugetAttr.set(P_PROJECT_URL, data.get(PROJECT_URL));
+    nugetAttr.set(P_PUBLISHED, data.get(PUBLISHED));
+    nugetAttr.set(P_RELEASE_NOTES, data.get(RELEASE_NOTES));
+    nugetAttr.set(P_REPORT_ABUSE_URL, data.get(REPORT_ABUSE_URL));
+    nugetAttr.set(P_REQUIRE_LICENSE_ACCEPTANCE, Boolean.parseBoolean(data.get(REQUIRE_LICENSE_ACCEPTANCE)));
+    nugetAttr.set(P_SUMMARY, data.get(SUMMARY));
+    nugetAttr.set(P_TAGS, data.get(TAGS));
+    nugetAttr.set(P_TITLE, data.get(TITLE));
+    nugetAttr.set(NugetProperties.P_VERSION, data.get(VERSION));
+    if (data.containsKey(VERSION_DOWNLOAD_COUNT)) {
+      nugetAttr.set(P_VERSION_DOWNLOAD_COUNT, Integer.parseInt(data.get(VERSION_DOWNLOAD_COUNT)));
     }
 
     return component;
@@ -437,7 +436,7 @@ public class NugetGalleryFacetImpl
   }
 
   private OrientVertex findComponent(final StorageTx storageTx, final String name, final Object version) {
-    final ImmutableMap<String, Object> params = ImmutableMap.of("version", version, "name", name);
+    final ImmutableMap<String, Object> params = ImmutableMap.of(P_VERSION, version, P_NAME, name);
 
     final Iterable<OrientVertex> components = storageTx
         .findComponents("version=:version AND name=:name", params, getRepositories(), null);
@@ -485,8 +484,8 @@ public class NugetGalleryFacetImpl
     @Override
     public int compare(final OrientVertex o1, final OrientVertex o2) {
       try {
-        Version v1 = SCHEME.parseVersion((String) o1.getProperty("version"));
-        Version v2 = SCHEME.parseVersion((String) o2.getProperty("version"));
+        Version v1 = SCHEME.parseVersion((String) o1.getProperty(P_VERSION));
+        Version v2 = SCHEME.parseVersion((String) o2.getProperty(P_VERSION));
         return v1.compareTo(v2);
       }
       catch (InvalidVersionSpecificationException e) {

@@ -22,6 +22,7 @@ import org.odata4j.producer.jpa.JPASkipToken;
 import org.odata4j.producer.jpa.JPQLGenerator;
 
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.sonatype.nexus.repository.nuget.internal.NugetProperties.*;
 import static org.odata4j.producer.resources.OptionsQueryParser.parseFilter;
 import static org.odata4j.producer.resources.OptionsQueryParser.parseOrderBy;
 import static org.odata4j.producer.resources.OptionsQueryParser.parseSkip;
@@ -167,24 +168,23 @@ public final class ODataUtils
 
   private static Map<String, String> columnAliases() {
     Map<String, String> aliases = Maps.newHashMap();
-    aliases.put("ID", nugat("id"));
-    aliases.put("VERSION", nugat("version"));
-    aliases.put("ISPRERELEASE", nugat("is_prerelease"));
-    aliases.put("ISLATESTVERSION",nugat("is_latest_version"));
-    aliases.put("ISABSOLUTELATESTVERSION",nugat("is_absolute_latest_version"));
-    aliases.put("CREATED", nugat("created"));
-    aliases.put("LASTUPDATED", nugat("last_updated"));
-    aliases.put("PUBLISHED", nugat("published"));
-    aliases.put("PACKAGESIZE", nugat("package_size"));
-    aliases.put("PACKAGE_HASH", nugat("package_hash"));
-    aliases.put("PACKAGEHASHALGORITHM", nugat("package_hash_algorithm"));
 
-    aliases.put("TITLE", nugat("title"));
-    aliases.put("SUMMARY", nugat("summary"));
-    aliases.put("REQUIRELICENSEACCEPTANCE", nugat("requires_license_acceptance"));
-
-    aliases.put("VERSIONDOWNLOADCOUNT", nugat("version_download_count"));
-    aliases.put("DOWNLOADCOUNT", nugat("download_count"));
+    aliases.put(CREATED, nugat(P_CREATED));
+    aliases.put(DOWNLOAD_COUNT, nugat(P_DOWNLOAD_COUNT));
+    aliases.put(ID, nugat(P_ID));
+    aliases.put(IS_ABSOLUTE_LATEST_VERSION, nugat(P_IS_ABSOLUTE_LATEST_VERSION));
+    aliases.put(IS_LATEST_VERSION, nugat(P_IS_LATEST_VERSION));
+    aliases.put(IS_PRERELEASE, nugat(P_IS_PRERELEASE));
+    aliases.put(LAST_UPDATED, nugat(P_LAST_UPDATED));
+    aliases.put(PACKAGE_HASH, nugat(P_PACKAGE_HASH));
+    aliases.put(PACKAGE_HASH_ALGORITHM, nugat(P_PACKAGE_HASH_ALGORITHM));
+    aliases.put(PACKAGE_SIZE, nugat(P_PACKAGE_SIZE));
+    aliases.put(PUBLISHED, nugat(P_PUBLISHED));
+    aliases.put(REQUIRE_LICENSE_ACCEPTANCE, nugat(P_REQUIRE_LICENSE_ACCEPTANCE));
+    aliases.put(SUMMARY, nugat(P_SUMMARY));
+    aliases.put(TITLE, nugat(P_TITLE));
+    aliases.put(VERSION, nugat(P_VERSION));
+    aliases.put(VERSION_DOWNLOAD_COUNT, nugat(P_VERSION_DOWNLOAD_COUNT));
 
     return aliases;
   }
